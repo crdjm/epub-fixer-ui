@@ -1,35 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EPUB Fixer - Professional EPUB Processing Service
+
+This is a Next.js web application that provides a professional UI for processing EPUB files. The service offers two main features:
+
+1. **EPUB 2 to EPUB 3 Conversion**: Automatically upgrades legacy EPUB 2 files to the modern EPUB 3 standard
+2. **Accessibility & Validation**: Runs EPUB files through EPUBCheck and ACE accessibility checking, fixes issues, and generates detailed reports
+
+## Features
+
+- Marketing homepage with professional copy to attract users
+- User authentication (email/password signup/signin)
+- File upload functionality (EPUB files, max 10MB, max 5 files)
+- Processing status tracking
+- Download of processed files and detailed reports
+- Admin dashboard for managing users and EPUB files
+- Responsive design using Tailwind CSS
 
 ## Getting Started
 
-First, run the development server:
+First, install the dependencies:
+
+```bash
+npm install
+```
+
+Set up the environment variables by copying `.env.example` to `.env` and filling in the required values:
+
+```bash
+cp .env.example .env
+```
+
+Run the database migrations:
+
+```bash
+npx prisma migrate dev
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3456](http://localhost:3456) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/app/` - Next.js app router pages
+- `src/components/` - Reusable React components
+- `src/lib/` - Utility functions and authentication setup
+- `prisma/` - Prisma schema and migrations
+
+## Authentication
+
+The application supports email and password signup/signin.
+
+The user with the email specified in `ADMIN_EMAIL` environment variable will have admin privileges and access to the admin dashboard.
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+To learn more about the technologies used in this project:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [Next.js Documentation](https://nextjs.org/docs) - React framework
+- [NextAuth.js Documentation](https://next-auth.js.org/) - Authentication for Next.js
+- [Prisma Documentation](https://www.prisma.io/docs/) - Database toolkit
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs) - Utility-first CSS framework
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
+## Deployment
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
