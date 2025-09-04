@@ -41,3 +41,16 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Uploaded and processed files
+/uploads/
+/processed/
+
+# Test files
+*test*.js
+*test*.epub
+*test_*/
+
+# Other files to ignore
+*.zip
+*.json
