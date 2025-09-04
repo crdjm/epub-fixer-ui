@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
-
-const PROCESSED_DIR = path.join(process.cwd(), "processed");
 
 export async function GET(request: Request) {
   try {
@@ -27,18 +24,18 @@ export async function GET(request: Request) {
       );
     }
 
-    // Security check: prevent directory traversal
-    if (filePath.includes("..") || filePath.startsWith("/")) {
+    // Security check: ensure the file path doesn't contain traversal sequences
+    if (filePath.includes("..")) {
       return NextResponse.json(
         { error: "Invalid file path" },
         { status: 400 }
       );
     }
 
-    // Construct full file path
-    const fullPath = path.join(PROCESSED_DIR, filePath);
-
-    // Verify the file exists
+    // Construct the full file path
+    const fullPath = path.join(process.cwd(), filePath);
+    
+    // Check if file exists
     try {
       await fs.access(fullPath);
     } catch {
@@ -48,37 +45,32 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get file stats to determine content type
-    const stats = await fs.stat(fullPath);
-    if (!stats.isFile()) {
-      return NextResponse.json(
-        { error: "Invalid file path" },
-        { status: 400 }
-      );
-    }
-
-    // Read file
+    // Read the file
     const fileBuffer = await fs.readFile(fullPath);
     
-    // Determine content type based on file extension
+    // Get file extension to set content type
+    const ext = path.extname(filePath).toLowerCase();
     let contentType = "application/octet-stream";
-    if (filePath.endsWith(".epub")) {
+    
+    if (ext === ".epub") {
       contentType = "application/epub+zip";
-    } else if (filePath.endsWith(".html")) {
+    } else if (ext === ".html") {
       contentType = "text/html";
     }
 
-    // Get filename for Content-Disposition header
-    const fileName = path.basename(filePath);
-
-    return new NextResponse(fileBuffer, {
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Content-Length": stats.size.toString(),
-      },
-    });
-  } catch (error) {
+    // Create response with appropriate headers
+    const response = new NextResponse(fileBuffer);
+    response.headers.set("Content-Type", contentType);
+    
+    // For HTML files, display in browser; for EPUB files, force download
+    if (ext === ".html") {
+      response.headers.set("Content-Disposition", `inline; filename="${path.basename(filePath)}"`);
+    } else {
+      response.headers.set("Content-Disposition", `attachment; filename="${path.basename(filePath)}"`);
+    }
+    
+    return response;
+  } catch (error: any) {
     console.error("File download error:", error);
     return NextResponse.json(
       { error: "Failed to download file", details: error.message },

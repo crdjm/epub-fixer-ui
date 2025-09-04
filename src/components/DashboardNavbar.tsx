@@ -6,13 +6,13 @@ import { Session } from "next-auth";
 
 export default function DashboardNavbar({ session }: { session: Session }) {
   return (
-    <nav className="bg-white shadow">
+    <nav className="bg-white shadow-lg border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link href="/dashboard" className="text-xl font-bold text-indigo-600">
-                EPUB Fixer
+                EPUB Fixer Dashboard
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
@@ -20,7 +20,7 @@ export default function DashboardNavbar({ session }: { session: Session }) {
                 href="/dashboard"
                 className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
               >
-                Dashboard
+                My Files
               </Link>
               {session.user?.isAdmin && (
                 <Link
@@ -45,7 +45,7 @@ export default function DashboardNavbar({ session }: { session: Session }) {
                 )}
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
-                  className="text-sm text-gray-700 hover:text-gray-900"
+                  className="text-sm text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-md"
                 >
                   Sign out
                 </button>

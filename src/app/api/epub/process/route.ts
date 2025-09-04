@@ -21,6 +21,26 @@ async function ensureDirectories() {
   }
 }
 
+// Function to detect EPUB version
+async function detectEpubVersion(epubPath: string): Promise<"epub2" | "epub3"> {
+  try {
+    // Use epub-fix to detect version
+    const { stdout, stderr } = await execPromise(`epub-fix validate "${epubPath}" --analyze-only`);
+    if (stdout.includes("EPUB 2") || stdout.includes("EPUB2") || stdout.includes("Validation failed")) {
+      return "epub2";
+    } else {
+      return "epub3";
+    }
+  } catch (error: any) {
+    // If the command fails with "Validation failed" in stderr, it's likely an EPUB2
+    if (error.stderr && error.stderr.includes("Validation failed")) {
+      return "epub2";
+    }
+    console.warn("Could not detect EPUB version, assuming EPUB3:", error);
+    return "epub3";
+  }
+}
+
 export async function POST(request: Request) {
   try {
     // Authenticate user
@@ -51,8 +71,6 @@ export async function POST(request: Request) {
     const fileId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const tempFilePath = path.join(UPLOAD_DIR, `${fileId}-${originalFileName}`);
     const outputDir = path.join(PROCESSED_DIR, fileId);
-    const outputEpubPath = path.join(outputDir, `fixed-${originalFileName}`);
-    const outputLogPath = path.join(outputDir, `log-${originalFileName.replace(".epub", ".html")}`);
 
     // Create output directory
     await fs.mkdir(outputDir, { recursive: true });
@@ -61,66 +79,136 @@ export async function POST(request: Request) {
     await fs.writeFile(tempFilePath, fileBuffer);
 
     try {
-      // Call your EPUB processing CLI tool
-      // Replace this with the actual command for your EPUB processing tool
-      const command = `your-epub-cli-tool --input "${tempFilePath}" --output-dir "${outputDir}"`;
+      // Detect EPUB version
+      const epubVersion = await detectEpubVersion(tempFilePath);
+      console.log(`Detected EPUB version: ${epubVersion}`);
+
+      let epub3Path = tempFilePath;
+      let epub3FileName = originalFileName;
+      let epub3Url: string | null = null;
       
-      console.log("Executing command:", command);
-      const { stdout, stderr } = await execPromise(command);
-      
-      console.log("EPUB processing stdout:", stdout);
-      if (stderr) {
-        console.warn("EPUB processing stderr:", stderr);
+      // If it's an EPUB2, convert it to EPUB3 first
+      if (epubVersion === "epub2") {
+        console.log("Converting EPUB2 to EPUB3...");
+        epub3FileName = originalFileName.replace(/\.epub$/i, "_epub3.epub");
+        epub3Path = path.join(outputDir, epub3FileName);
+        
+        // Convert EPUB2 to EPUB3
+        // Note: epub-fix convert places output in the same directory as input when using relative paths
+        // So we need to specify the full path for the output
+        const convertCommand = `epub-fix convert "${tempFilePath}" -o "${epub3Path}"`;
+        console.log("Executing conversion command:", convertCommand);
+        const { stdout: convertStdout, stderr: convertStderr } = await execPromise(convertCommand);
+        console.log("EPUB conversion stdout:", convertStdout);
+        if (convertStderr) {
+          console.warn("EPUB conversion stderr:", convertStderr);
+        }
+        
+        // Verify conversion was successful
+        // The converted file might be in a different location than expected
+        // Let's check both the expected location and the input file's directory
+        const possiblePaths = [
+          epub3Path,
+          path.join(path.dirname(tempFilePath), epub3FileName)
+        ];
+        
+        let actualEpub3Path = null;
+        for (const possiblePath of possiblePaths) {
+          const exists = await fs.access(possiblePath).then(() => true).catch(() => false);
+          if (exists) {
+            actualEpub3Path = possiblePath;
+            break;
+          }
+        }
+        
+        if (!actualEpub3Path) {
+          throw new Error("EPUB2 to EPUB3 conversion failed - output file not created");
+        }
+        
+        // If the file is in the wrong location, move it to the correct location
+        if (actualEpub3Path !== epub3Path) {
+          await fs.rename(actualEpub3Path, epub3Path);
+        }
+        
+        // Verify conversion was successful
+        const epub3Exists = await fs.access(epub3Path).then(() => true).catch(() => false);
+        if (!epub3Exists) {
+          throw new Error("EPUB2 to EPUB3 conversion failed - output file not created");
+        }
+        
+        // Set the EPUB3 URL for later use
+        epub3Url = `/processed/${fileId}/${epub3FileName}`;
+      }
+
+      // Fix the EPUB (either the original EPUB3 or the converted one)
+      const fixedFileName = `fixed-${epub3FileName}`;
+      const fixedEpubPath = path.join(outputDir, fixedFileName);
+      const reportFileName = `report-${epub3FileName.replace(".epub", ".html")}`;
+      const reportPath = path.join(outputDir, reportFileName);
+
+      console.log("Fixing EPUB...");
+      const fixCommand = `epub-fix --verify --keep-output "${epub3Path}" -o "${fixedEpubPath}" -r "${reportPath}"`;
+      console.log("Executing fix command:", fixCommand);
+      const { stdout: fixStdout, stderr: fixStderr } = await execPromise(fixCommand);
+      console.log("EPUB fixing stdout:", fixStdout);
+      if (fixStderr) {
+        console.warn("EPUB fixing stderr:", fixStderr);
       }
 
       // Check if output files were created
-      const epubExists = await fs.access(outputEpubPath).then(() => true).catch(() => false);
-      const logExists = await fs.access(outputLogPath).then(() => true).catch(() => false);
+      const fixedEpubExists = await fs.access(fixedEpubPath).then(() => true).catch(() => false);
+      const reportExists = await fs.access(reportPath).then(() => true).catch(() => false);
 
-      if (!epubExists) {
-        throw new Error("Processed EPUB file was not created");
+      if (!fixedEpubExists) {
+        throw new Error("EPUB fixing failed - fixed EPUB file was not created");
       }
 
-      // Save file information to database
+      // Create a single database record for this upload with all URLs
       const epubRecord = await prisma.epub.create({
         data: {
-          userId: session.user.id,
+          userId: session.user.id!, // Add non-null assertion since we've already checked session.user exists
           title: originalFileName.replace(/\.[^/.]+$/, ""),
           fileName: originalFileName,
           fileSize: fileBuffer.length,
           fileType: file.type,
           status: "completed",
           originalUrl: `/uploads/${fileId}-${originalFileName}`,
-          fixedUrl: logExists ? `/processed/${fileId}/fixed-${originalFileName}` : null,
-          logUrl: logExists ? `/processed/${fileId}/log-${originalFileName.replace(".epub", ".html")}` : null,
+          epub3Url: epub3Url, // URL for EPUB3 version if converted from EPUB2
+          fixedUrl: `/processed/${fileId}/${fixedFileName}`,
+          logUrl: reportExists ? `/processed/${fileId}/${reportFileName}` : null,
         }
       });
 
-      // Return results
+      // Return results with download URLs
       return NextResponse.json({
         success: true,
-        message: "File processed successfully",
+        message: epubVersion === "epub2" 
+          ? "EPUB2 converted to EPUB3 and fixed successfully" 
+          : "EPUB3 fixed successfully",
         data: {
           id: epubRecord.id,
           originalFileName: originalFileName,
-          fixedFileName: `fixed-${originalFileName}`,
-          logFileName: logExists ? `log-${originalFileName.replace(".epub", ".html")}` : null,
-          fixedFileUrl: logExists ? `/api/epub/download?file=${fileId}/fixed-${originalFileName}` : null,
-          logFileUrl: logExists ? `/api/epub/download?file=${fileId}/log-${originalFileName.replace(".epub", ".html")}` : null,
+          epub3FileName: epubVersion === "epub2" ? epub3FileName : null,
+          fixedFileName: fixedFileName,
+          reportFileName: reportExists ? reportFileName : null,
+          epub3FileUrl: epubVersion === "epub2" && epub3Url ? `/api/epub/download?file=${epub3Url.substring(1)}` : null,
+          fixedFileUrl: `/api/epub/download?file=processed/${fileId}/${fixedFileName}`,
+          reportFileUrl: reportExists ? `/api/epub/download?file=processed/${fileId}/${reportFileName}` : null,
         }
       });
-    } catch (processError) {
+    } catch (processError: any) {
       console.error("EPUB processing error:", processError);
       
       // Save failed processing attempt to database
       await prisma.epub.create({
         data: {
-          userId: session.user.id,
+          userId: session.user.id!, // Add non-null assertion
           title: originalFileName.replace(/\.[^/.]+$/, ""),
           fileName: originalFileName,
           fileSize: fileBuffer.length,
           fileType: file.type,
           status: "failed",
+          epub3Url: null,
         }
       });
 
@@ -132,14 +220,14 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { error: "Failed to process EPUB file", details: processError.message },
+        { error: "Failed to process EPUB file", details: (processError as Error).message },
         { status: 500 }
       );
     }
   } catch (error) {
     console.error("EPUB processing error:", error);
     return NextResponse.json(
-      { error: "Failed to process EPUB file", details: error.message },
+      { error: "Failed to process EPUB file", details: (error as Error).message },
       { status: 500 }
     );
   }

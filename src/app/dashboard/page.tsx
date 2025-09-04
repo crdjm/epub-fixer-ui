@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
+import { useSession } from "next-auth/react";
 
 interface EpubFile {
   id: string;
@@ -14,15 +15,55 @@ interface EpubFile {
   createdAt: string;
   logUrl?: string;
   fixedUrl?: string;
+  epub3Url?: string; // For EPUB3 version of EPUB2 files
+  originalUrl?: string;
 }
 
 export default function Dashboard() {
   const [files, setFiles] = useState<EpubFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { data: session } = useSession();
 
-  // In a real implementation, you would fetch actual files from the database
-  // For now, we'll keep the simulated behavior but improve error handling
+  // Fetch user's existing EPUB files from the database
+  useEffect(() => {
+    const fetchUserEpubs = async () => {
+      try {
+        const response = await fetch("/api/epub/list");
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          // Convert database records to UI format and create download URLs
+          const epubFiles = result.data.map((epub: any) => ({
+            id: epub.id,
+            title: epub.title,
+            fileName: epub.fileName,
+            fileSize: epub.fileSize,
+            status: epub.status,
+            createdAt: epub.createdAt,
+            logUrl: epub.logUrl ? `/api/epub/download?file=${epub.logUrl.substring(1)}` : undefined,
+            fixedUrl: epub.fixedUrl ? `/api/epub/download?file=${epub.fixedUrl.substring(1)}` : undefined,
+            epub3Url: epub.epub3Url ? `/api/epub/download?file=${epub.epub3Url.substring(1)}` : undefined,
+            originalUrl: epub.originalUrl ? `/api/epub/download?file=${epub.originalUrl.substring(1)}` : undefined,
+          }));
+          setFiles(epubFiles);
+        } else {
+          console.error("Failed to fetch EPUB files:", result.error);
+          toast.error("Failed to load your previous uploads");
+        }
+      } catch (error) {
+        console.error("Error fetching EPUB files:", error);
+        toast.error("Failed to load your previous uploads");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (session?.user) {
+      fetchUserEpubs();
+    }
+  }, [session?.user]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
@@ -81,8 +122,9 @@ export default function Dashboard() {
               ? { 
                   ...f, 
                   status: "completed",
+                  epub3Url: result.data.epub3FileUrl,
                   fixedUrl: result.data.fixedFileUrl,
-                  logUrl: result.data.logFileUrl
+                  logUrl: result.data.reportFileUrl,
                 } 
               : f
           )
@@ -101,7 +143,7 @@ export default function Dashboard() {
               : f
           )
         );
-        toast.error(`Failed to process ${file.name}: ${error.message}`);
+        toast.error(`Failed to process ${file.name}: ${(error as Error).message}`);
       } finally {
         setIsUploading(false);
       }
@@ -118,9 +160,30 @@ export default function Dashboard() {
     disabled: isUploading
   });
 
-  const handleDelete = (id: string) => {
-    setFiles(prev => prev.filter(file => file.id !== id));
-    toast.success("File deleted");
+  const handleDelete = async (id: string) => {
+    // Confirm before deleting
+    if (!confirm("Are you sure you want to remove this EPUB from your dashboard?")) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/epub/delete?id=${id}`, {
+        method: "DELETE",
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to delete file");
+      }
+      
+      // Remove file from UI state
+      setFiles(prev => prev.filter(file => file.id !== id));
+      toast.success("File removed successfully");
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      toast.error(`Failed to remove file: ${(error as Error).message}`);
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -130,6 +193,17 @@ export default function Dashboard() {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
+
+  // Show loading state while fetching files
+  if (isLoading) {
+    return (
+      <div className="py-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="py-6">
@@ -190,34 +264,37 @@ export default function Dashboard() {
             <ul className="divide-y divide-gray-200">
               {files.map((file) => (
                 <li key={file.id}>
-                  <div className="px-4 py-4 flex items-center justify-between sm:px-6">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-md flex items-center justify-center">
-                        <svg 
-                          className="h-6 w-6 text-indigo-600" 
-                          fill="none" 
-                          viewBox="0 0 24 24" 
-                          stroke="currentColor"
-                        >
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
-                          />
-                        </svg>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{file.title}</div>
-                        <div className="text-sm text-gray-500">
-                          {file.fileName} • {formatFileSize(file.fileSize)}
+                  <div className="px-4 py-4 sm:px-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-md flex items-center justify-center">
+                          <svg 
+                            className="h-6 w-6 text-indigo-600" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                          >
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={2} 
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                            />
+                          </svg>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{file.title}</div>
+                          <div className="text-sm text-gray-500">
+                            {file.fileName} • {formatFileSize(file.fileSize)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
                       <div className="text-sm text-gray-500">
                         {new Date(file.createdAt).toLocaleDateString()}
                       </div>
+                    </div>
+                    
+                    <div className="mt-4 flex items-center justify-between">
                       <div>
                         {file.status === "processing" ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
@@ -233,34 +310,58 @@ export default function Dashboard() {
                           </span>
                         )}
                       </div>
-                      <div className="flex space-x-2">
-                        {file.status === "completed" && file.fixedUrl && (
-                          <a
-                            href={file.fixedUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                      
+                      {file.status === "completed" && (
+                        <div className="flex space-x-4">
+                          {file.epub3Url && (
+                            <a
+                              href={file.epub3Url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                            >
+                              Download EPUB3
+                            </a>
+                          )}
+                          {file.fixedUrl && (
+                            <a
+                              href={file.fixedUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                            >
+                              Download Fixed EPUB
+                            </a>
+                          )}
+                          {file.logUrl && (
+                            <a
+                              href={file.logUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                            >
+                              View Report
+                            </a>
+                          )}
+                          <button
+                            onClick={() => handleDelete(file.id)}
+                            className="text-red-600 hover:text-red-900 text-sm font-medium"
                           >
-                            Download
-                          </a>
-                        )}
-                        {file.status === "completed" && file.logUrl && (
-                          <a
-                            href={file.logUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                      
+                      {file.status === "failed" && (
+                        <div className="flex space-x-4">
+                          <button
+                            onClick={() => handleDelete(file.id)}
+                            className="text-red-600 hover:text-red-900 text-sm font-medium"
                           >
-                            View Log
-                          </a>
-                        )}
-                        <button
-                          onClick={() => handleDelete(file.id)}
-                          className="text-red-600 hover:text-red-900 text-sm font-medium"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                            Remove
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </li>
