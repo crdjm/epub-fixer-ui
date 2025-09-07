@@ -119,38 +119,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="py-16 bg-indigo-600">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Ready to Perfect Your EPUBs?
-          </h2>
-          <p className="text-xl text-indigo-100 mb-10 max-w-2xl mx-auto">
-            Join thousands of publishers and authors who trust our platform for professional EPUB processing.
-          </p>
-          <div className="max-w-md mx-auto">
-            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="flex-grow px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                required
-              />
-              <button
-                type="submit"
-                className="px-6 py-3 bg-white text-indigo-600 font-semibold rounded-lg shadow hover:bg-gray-100 transition duration-300"
-              >
-                Get Early Access
-              </button>
-            </form>
-            <p className="text-indigo-200 text-sm mt-4">
-              Join our waiting list for exclusive early access and special launch pricing.
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

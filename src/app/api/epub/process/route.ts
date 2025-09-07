@@ -70,10 +70,6 @@ export async function POST(request: Request) {
     const originalFileName = file.name;
     const fileId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const tempFilePath = path.join(UPLOAD_DIR, `${fileId}-${originalFileName}`);
-    const outputDir = path.join(PROCESSED_DIR, fileId);
-
-    // Create output directory
-    await fs.mkdir(outputDir, { recursive: true });
 
     // Write file to disk
     await fs.writeFile(tempFilePath, fileBuffer);
@@ -91,12 +87,10 @@ export async function POST(request: Request) {
       if (epubVersion === "epub2") {
         console.log("Converting EPUB2 to EPUB3...");
         epub3FileName = originalFileName.replace(/\.epub$/i, "_epub3.epub");
-        epub3Path = path.join(outputDir, epub3FileName);
         
         // Convert EPUB2 to EPUB3
-        // Note: epub-fix convert places output in the same directory as input when using relative paths
-        // So we need to specify the full path for the output
-        const convertCommand = `epub-fix convert "${tempFilePath}" -o "${epub3Path}"`;
+        // Note: Based on testing, the tool creates the output in the same directory as input
+        const convertCommand = `epub-fix convert "${tempFilePath}"`;
         console.log("Executing conversion command:", convertCommand);
         const { stdout: convertStdout, stderr: convertStderr } = await execPromise(convertCommand);
         console.log("EPUB conversion stdout:", convertStdout);
@@ -104,41 +98,35 @@ export async function POST(request: Request) {
           console.warn("EPUB conversion stderr:", convertStderr);
         }
         
-        // Verify conversion was successful
-        // The converted file might be in a different location than expected
-        // Let's check both the expected location and the input file's directory
-        const possiblePaths = [
-          epub3Path,
-          path.join(path.dirname(tempFilePath), epub3FileName)
-        ];
+        // The tool creates the output file in the same directory with _epub3 suffix
+        const actualEpub3Path = path.join(UPLOAD_DIR, `${fileId}-${epub3FileName}`);
         
-        let actualEpub3Path = null;
-        for (const possiblePath of possiblePaths) {
-          const exists = await fs.access(possiblePath).then(() => true).catch(() => false);
-          if (exists) {
-            actualEpub3Path = possiblePath;
-            break;
+        // Give the file system a moment to finish writing the file
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Verify conversion was successful
+        try {
+          await fs.access(actualEpub3Path);
+          epub3Path = actualEpub3Path;
+          // Set the EPUB3 URL for later use
+          epub3Url = `/uploads/${fileId}-${epub3FileName}`;
+          console.log("EPUB3 file found at:", actualEpub3Path);
+        } catch (accessError) {
+          console.warn("EPUB3 file not found at expected location, checking alternative locations...");
+          // List files in the directory to help with debugging
+          try {
+            const files = await fs.readdir(UPLOAD_DIR);
+            console.log("Files in upload directory:", files.filter(f => f.includes(fileId)));
+          } catch (dirError) {
+            console.log("Error reading directory:", dirError);
           }
+          throw new Error("EPUB2 to EPUB3 conversion failed - output file not created at expected location");
         }
-        
-        if (!actualEpub3Path) {
-          throw new Error("EPUB2 to EPUB3 conversion failed - output file not created");
-        }
-        
-        // If the file is in the wrong location, move it to the correct location
-        if (actualEpub3Path !== epub3Path) {
-          await fs.rename(actualEpub3Path, epub3Path);
-        }
-        
-        // Verify conversion was successful
-        const epub3Exists = await fs.access(epub3Path).then(() => true).catch(() => false);
-        if (!epub3Exists) {
-          throw new Error("EPUB2 to EPUB3 conversion failed - output file not created");
-        }
-        
-        // Set the EPUB3 URL for later use
-        epub3Url = `/processed/${fileId}/${epub3FileName}`;
       }
+
+      // Create output directory for fixed files
+      const outputDir = path.join(PROCESSED_DIR, fileId);
+      await fs.mkdir(outputDir, { recursive: true });
 
       // Fix the EPUB (either the original EPUB3 or the converted one)
       const fixedFileName = `fixed-${epub3FileName}`;
@@ -154,6 +142,9 @@ export async function POST(request: Request) {
       if (fixStderr) {
         console.warn("EPUB fixing stderr:", fixStderr);
       }
+
+      // Give the file system a moment to finish writing the files
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Check if output files were created
       const fixedEpubExists = await fs.access(fixedEpubPath).then(() => true).catch(() => false);
@@ -220,7 +211,7 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { error: "Failed to process EPUB file", details: (processError as Error).message },
+        { error: "Failed to process EPUB file", details: processError.message || (processError as Error).message },
         { status: 500 }
       );
     }

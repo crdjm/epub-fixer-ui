@@ -67,3 +67,14 @@ model Epub {
   epub3Url    String?
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  email      String
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([email, token])
+}

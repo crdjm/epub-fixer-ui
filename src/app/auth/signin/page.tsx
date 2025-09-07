@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
@@ -13,6 +13,8 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const verifyMessage = searchParams.get("verified");
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
@@ -20,6 +22,13 @@ export default function SignIn() {
       router.push("/dashboard");
     }
   }, [status, router]);
+
+  // Show verification message if present
+  useEffect(() => {
+    if (verifyMessage === "success") {
+      toast.success("Email verified successfully! You can now sign in.");
+    }
+  }, [verifyMessage]);
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +43,12 @@ export default function SignIn() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        // Check if it's an email verification error
+        if (result.error.includes("verify")) {
+          setError("Please verify your email address before signing in. Check your inbox for the verification email.");
+        } else {
+          setError("Invalid email or password");
+        }
         setLoading(false);
       } else if (result?.ok) {
         // Successful sign-in, redirect to dashboard
@@ -108,6 +122,14 @@ export default function SignIn() {
         {error && (
           <div className="rounded-md bg-red-50 p-4">
             <div className="text-sm text-red-700">{error}</div>
+          </div>
+        )}
+
+        {verifyMessage === "success" && (
+          <div className="rounded-md bg-green-50 p-4">
+            <div className="text-sm text-green-700">
+              Email verified successfully! You can now sign in.
+            </div>
           </div>
         )}
 

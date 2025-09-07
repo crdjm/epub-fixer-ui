@@ -36,6 +36,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
+        // Check if email is verified
+        if (!user.emailVerified) {
+          throw new Error("Please verify your email address before signing in");
+        }
+
         // Validate password
         const isPasswordValid = await bcrypt.compare(
           credentials.password as string,
@@ -68,6 +73,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           isAdmin: user.email === process.env.ADMIN_EMAIL,
+          emailVerified: !!user.emailVerified,
         };
       } 
       // If we have a token from JWT
@@ -76,6 +82,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.email = token.email || '';
         session.user.name = token.name || '';
         session.user.isAdmin = token.email === process.env.ADMIN_EMAIL;
+        session.user.emailVerified = token.emailVerified || false;
       }
       
       return session;
@@ -86,6 +93,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.email = user.email;
         token.name = user.name;
         token.isAdmin = user.email === process.env.ADMIN_EMAIL;
+        token.emailVerified = !!user.emailVerified;
       }
       
       return token;

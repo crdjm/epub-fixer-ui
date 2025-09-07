@@ -12,6 +12,7 @@ export default function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<boolean>(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,25 +50,48 @@ export default function SignUp() {
         throw new Error(data.error || "Something went wrong");
       }
 
-      // Automatically sign in after successful signup
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("Account created but failed to sign in. Please try signing in manually.");
-      } else {
-        router.push("/dashboard");
-        router.refresh();
-      }
+      // Show success message
+      setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div>
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+              Check your email
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              We've sent a verification link to {email}
+            </p>
+          </div>
+
+          <div className="rounded-md bg-green-50 p-4">
+            <div className="text-sm text-green-700">
+              <p>Your account has been created successfully!</p>
+              <p className="mt-2">Please check your email and click the verification link to complete your registration.</p>
+              <p className="mt-2">Didn't receive the email? Check your spam folder.</p>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <Link
+              href="/auth/signin"
+              className="font-medium text-indigo-600 hover:text-indigo-500"
+            >
+              Go to sign in page
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -170,6 +194,11 @@ export default function SignUp() {
                 <span>Create Account</span>
               )}
             </button>
+          </div>
+          
+          <div className="text-xs text-gray-500">
+            <p>By creating an account, you agree to receive a verification email.</p>
+            <p className="mt-1">Please verify your email address to complete registration.</p>
           </div>
         </form>
       </div>
