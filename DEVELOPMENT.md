@@ -32,6 +32,12 @@ npm run start
 
 This will start the server on port 3456. The production server uses the standard Next.js server which properly handles all API routes including NextAuth authentication endpoints.
 
+**Production Build Troubleshooting Checklist**:
+1. Ensure all chunks are generated in `.next/static/chunks/` directory
+2. Verify the AUTH_URL in `.env` matches the server port (http://localhost:3456)
+3. Check that no other processes are running on port 3456
+4. Confirm all required environment variables are set in `.env`
+
 **Important Notes**:
 1. Make sure the [AUTH_URL](file:///Users/crdjm/Dev/epub-fixer-ui/.env#L12-L12) in your `.env` file is set to `http://localhost:3456` for production
 2. If you encounter a port conflict (EADDRINUSE error), kill the existing process with:
