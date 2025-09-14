@@ -160,3 +160,67 @@ This command will:
 1. Drop the database
 2. Apply all migrations
 3. Optionally run seed scripts if configured
+
+## Troubleshooting UI Issues
+
+If you encounter UI issues in the production build, here are some steps to diagnose and fix them:
+
+### Blank Pages or Missing Content
+
+1. **Verify build files exist**:
+   ```bash
+   ls -la .next/static/chunks/app/
+   ```
+
+2. **Rebuild the application**:
+   ```bash
+   npm run build
+   ```
+
+3. **Check chunk files are being served**:
+   ```bash
+   curl -I http://localhost:3456/_next/static/chunks/app/[page]/page-[hash].js
+   ```
+
+### Authentication Page Issues
+
+1. **Verify authentication routes**:
+   ```bash
+   curl -I http://localhost:3456/auth/signin
+   curl -I http://localhost:3456/auth/signup
+   ```
+
+2. **Check environment variables**:
+   Ensure AUTH_URL in [.env](file:///Users/crdjm/Dev/epub-fixer-ui/.env) matches your production port:
+   ```env
+   AUTH_URL=http://localhost:3456
+   ```
+
+### Server Stability Issues
+
+1. **Check for port conflicts**:
+   ```bash
+   lsof -ti:3456 | xargs kill -9
+   ```
+
+2. **Restart the production server**:
+   ```bash
+   npm run start
+   ```
+
+3. **Monitor server logs**:
+   Look for database connection errors or file system issues that might cause the server to crash.
+
+### Database Issues
+
+If you see Prisma errors in the logs:
+1. **Check database file permissions**:
+   ```bash
+   ls -la prisma/data.db
+   ```
+
+2. **Reset the database** (if needed):
+   ```bash
+   rm prisma/data.db
+   npx prisma migrate dev --name init
+   ```
