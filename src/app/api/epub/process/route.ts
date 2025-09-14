@@ -202,7 +202,10 @@ export async function POST(request: Request) {
           fileSize: fileBuffer.length,
           fileType: file.type,
           status: "failed",
+          originalUrl: `/uploads/${fileId}-${originalFileName}`,
           epub3Url: null,
+          fixedUrl: null,
+          logUrl: null,
         }
       });
 
