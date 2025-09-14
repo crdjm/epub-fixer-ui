@@ -24,17 +24,19 @@ This command creates an optimized production build in the `.next` directory.
 
 To start the production server, you have two options:
 
-Option 1 - Using Next.js server:
+Option 1 - Using Next.js server (Recommended for Google OAuth):
 ```bash
 npm run start
 ```
 
-Option 2 - Using the custom Express server:
+Option 2 - Using the custom Express server (Limited functionality):
 ```bash
 node server.js
 ```
 
-Both will start the server on port 3456. The custom Express server ([server.js](file:///Users/crdjm/Dev/epub-fixer-ui/server.js)) is designed to serve the static files generated during the build process.
+**Important Note About Google Authentication**: The custom Express server ([server.js](file:///Users/crdjm/Dev/epub-fixer-ui/server.js)) does not properly handle NextAuth API routes which are required for Google OAuth to work. If you need Google authentication in production, you must use `npm run start` instead of the custom Express server.
+
+Both will start the server on port 3456. The custom Express server ([server.js](file:///Users/crdjm/Dev/epub-fixer-ui/server.js)) is designed to serve the static files generated during the build process but lacks proper API route handling.
 
 ## 3. Accessing Development Database Content
 
