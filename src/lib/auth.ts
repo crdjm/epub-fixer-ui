@@ -1,8 +1,11 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/db";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  adapter: PrismaAdapter(prisma),
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "",
@@ -15,12 +18,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // For now, just return a dummy user
-        if (credentials?.email === "test@example.com" && credentials?.password === "password") {
+        // For now, just return a dummy user for any credentials
+        // In a real implementation, you would check against a database
+        if (credentials?.email && credentials?.password) {
+          const email = credentials.email as string;
           return {
             id: "1",
-            email: "test@example.com",
-            name: "Test User",
+            email: email,
+            name: email.split("@")[0],
           };
         }
         return null;

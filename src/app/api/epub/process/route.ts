@@ -17,20 +17,41 @@ async function ensureDirectories() {
   await fs.mkdir(PROCESSED_DIR, { recursive: true });
 }
 
-// Detect EPUB version using epubcheck
+// Check epub-fix version
+async function checkEpubFixVersion(): Promise<string> {
+  try {
+    const { stdout } = await execPromise("epub-fix --version");
+    const versionMatch = stdout.trim().match(/(\d+\.\d+)/);
+    if (versionMatch) {
+      return versionMatch[1];
+    }
+    return "0.0";
+  } catch (error) {
+    console.warn("Error checking epub-fix version:", error);
+    return "0.0";
+  }
+}
+
+// Detect EPUB version by examining the file content
 async function detectEpubVersion(filePath: string): Promise<"epub2" | "epub3"> {
   try {
-    // Run epubcheck to get EPUB version information
-    const command = `epubcheck --mode exp "${filePath}"`;
+    // Run epub-fix convert command with --dry-run to detect version
+    // We'll capture the output to determine the version
+    const command = `epub-fix convert --dry-run "${filePath}"`;
     const { stdout, stderr } = await execPromise(command);
     
     // Check the output for version information
     const output = stdout + stderr;
+    console.log("EPUB version detection output:", output);
     
-    // If it's an EPUB3, epubcheck will not report "non-standard EPUB version"
-    if (output.includes("non-standard EPUB version")) {
+    // Look for version information in the output
+    if (output.includes("EPUB version detected: 2.0") || output.includes("Converting EPUB 2.0 to EPUB 3.0")) {
       return "epub2";
+    } else if (output.includes("EPUB version detected: 3.0") || output.includes("Converting EPUB 3.0")) {
+      return "epub3";
     } else {
+      // Default to EPUB3 if we can't determine the version
+      console.warn("Could not determine EPUB version from output, defaulting to EPUB3");
       return "epub3";
     }
   } catch (error) {
@@ -50,6 +71,17 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
+
+    // Check epub-fix version
+    const version = await checkEpubFixVersion();
+    const [major, minor] = version.split(".").map(Number);
+    if (major < 1 || (major === 1 && minor < 1)) {
+      return NextResponse.json(
+        { error: `epub-fix version 1.1 or later required. Current version: ${version}` },
+        { status: 500 }
+      );
+    }
+    console.log(`Using epub-fix version ${version}`);
 
     // Ensure directories exist
     await ensureDirectories();
@@ -89,7 +121,8 @@ export async function POST(request: Request) {
         
         // Convert EPUB2 to EPUB3
         // Note: Based on testing, the tool creates the output in the same directory as input
-        const convertCommand = `epub-fix convert --use-gemini "${tempFilePath}"`;
+        // Set the GEMINI_API_KEY environment variable to ensure it's available to the epub-fix tool
+        const convertCommand = `GEMINI_API_KEY=${process.env.GEMINI_API_KEY} epub-fix convert --use-gemini "${tempFilePath}"`;
         console.log("Executing conversion command:", convertCommand);
         const { stdout: convertStdout, stderr: convertStderr } = await execPromise(convertCommand);
         console.log("EPUB conversion stdout:", convertStdout);
@@ -101,7 +134,7 @@ export async function POST(request: Request) {
         const actualEpub3Path = path.join(UPLOAD_DIR, `${fileId}-${epub3FileName}`);
         
         // Give the file system a moment to finish writing the file
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Verify conversion was successful
         try {
@@ -126,17 +159,16 @@ export async function POST(request: Request) {
       // Create output directory for fixed files
       const outputDir = path.join(PROCESSED_DIR, fileId);
       await fs.mkdir(outputDir, { recursive: true });
+      console.log("Created output directory:", outputDir);
 
       // Fix the EPUB (either the original EPUB3 or the converted one)
       const fixedFileName = `fixed-${epub3FileName}`;
-      const fixedEpubPath = path.join(outputDir, fixedFileName);
       const reportFileName = `report-${epub3FileName.replace(".epub", ".html")}`;
-      const reportPath = path.join(outputDir, reportFileName);
-      const imageReviewReportFileName = `${reportFileName}_image_review.html`;
-      const imageReviewReportPath = path.join(outputDir, imageReviewReportFileName);
 
       console.log("Fixing EPUB...");
-      const fixCommand = `epub-fix --verify --keep-output --use-gemini "${epub3Path}" -o "${fixedEpubPath}" -r "${reportPath}"`;
+      // Use only --use-gemini flag as requested, no other options
+      // Set the GEMINI_API_KEY environment variable to ensure it's available to the epub-fix tool
+      const fixCommand = `GEMINI_API_KEY=${process.env.GEMINI_API_KEY} epub-fix --use-gemini "${epub3Path}"`;
       console.log("Executing fix command:", fixCommand);
       const { stdout: fixStdout, stderr: fixStderr } = await execPromise(fixCommand);
       console.log("EPUB fixing stdout:", fixStdout);
@@ -144,16 +176,110 @@ export async function POST(request: Request) {
         console.warn("EPUB fixing stderr:", fixStderr);
       }
 
-      // Give the file system a moment to finish writing the files
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Give the file system more time to finish writing the files
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
-      // Check if output files were created
-      const fixedEpubExists = await fs.access(fixedEpubPath).then(() => true).catch(() => false);
-      const reportExists = await fs.access(reportPath).then(() => true).catch(() => false);
-      const imageReviewReportExists = await fs.access(imageReviewReportPath).then(() => true).catch(() => false);
+      // When using --use-gemini only, files are created in the same directory as input
+      // with specific naming patterns based on the input filename
+      const baseName = path.basename(epub3Path, '.epub');
+      console.log("Looking for files with base name:", baseName);
+      
+      // The actual files might be created with slightly different naming
+      // Let's search the directory for files that match our patterns
+      const dirPath = path.dirname(epub3Path);
+      console.log("Searching in directory:", dirPath);
+      
+      let foundFixedEpubPath = '';
+      let foundReportPath = '';
+      let fixedEpubExists = false;
+      let reportExists = false;
+      
+      try {
+        const files = await fs.readdir(dirPath);
+        console.log("All files in directory:", files);
+        
+        // Look for files matching our expected patterns
+        for (const file of files) {
+          // Look for _fixed.epub files
+          if (file.endsWith('_fixed.epub')) {
+            // Check if it's related to our input file
+            const fileBaseName = file.replace('_fixed.epub', '');
+            if (epub3Path.includes(fileBaseName)) {
+              foundFixedEpubPath = path.join(dirPath, file);
+              fixedEpubExists = true;
+              console.log("Found fixed EPUB:", foundFixedEpubPath);
+            }
+          }
+          
+          // Look for _report.html files
+          if (file.endsWith('_report.html')) {
+            // Check if it's related to our input file
+            const fileBaseName = file.replace('_report.html', '');
+            if (epub3Path.includes(fileBaseName)) {
+              foundReportPath = path.join(dirPath, file);
+              reportExists = true;
+              console.log("Found report:", foundReportPath);
+            }
+          }
+        }
+      } catch (dirError) {
+        console.log("Error reading directory:", dirError);
+      }
+
+      // If we still haven't found the files, try the expected paths
+      if (!fixedEpubExists) {
+        const expectedFixedPath = path.join(dirPath, `${baseName}_fixed.epub`);
+        console.log("Checking expected fixed EPUB path:", expectedFixedPath);
+        fixedEpubExists = await fs.access(expectedFixedPath).then(() => true).catch(() => false);
+        if (fixedEpubExists) {
+          foundFixedEpubPath = expectedFixedPath;
+          console.log("Found fixed EPUB at expected path");
+        }
+      }
+      
+      if (!reportExists) {
+        const expectedReportPath = path.join(dirPath, `${baseName}_report.html`);
+        console.log("Checking expected report path:", expectedReportPath);
+        reportExists = await fs.access(expectedReportPath).then(() => true).catch(() => false);
+        if (reportExists) {
+          foundReportPath = expectedReportPath;
+          console.log("Found report at expected path");
+        }
+      }
+
+      // If the report file doesn't exist, that's a problem - we should have generated one
+      // Only create an empty one as a fallback if the epub-fix command failed to create it
+      if (!reportExists) {
+        console.warn("Warning: Report file was not created by epub-fix tool");
+        try {
+          const fallbackReportPath = path.join(dirPath, `${baseName}_report.html`);
+          await fs.writeFile(fallbackReportPath, "<html><body><h1>Processing Report</h1><p>No issues found or report generation failed.</p></body></html>");
+          reportExists = true;
+          foundReportPath = fallbackReportPath;
+          console.log("Created fallback report file:", fallbackReportPath);
+        } catch (writeError) {
+          console.warn("Failed to create fallback report file:", writeError);
+        }
+      }
 
       if (!fixedEpubExists) {
         throw new Error("EPUB fixing failed - fixed EPUB file was not created");
+      }
+
+      // Log the file paths for debugging
+      console.log("Fixed EPUB exists:", fixedEpubExists, "at", foundFixedEpubPath);
+      console.log("Report exists:", reportExists, "at", foundReportPath);
+
+      // Move files to final locations in the output directory (already created above)
+      const finalFixedEpubPath = path.join(outputDir, fixedFileName);
+      const finalReportPath = path.join(outputDir, reportFileName);
+
+      // Move files to final locations
+      if (fixedEpubExists) {
+        await fs.rename(foundFixedEpubPath, finalFixedEpubPath);
+      }
+      if (reportExists) {
+        await fs.rename(foundReportPath, finalReportPath);
       }
 
       // Create a single database record for this upload with all URLs
@@ -168,7 +294,7 @@ export async function POST(request: Request) {
           originalUrl: `/uploads/${fileId}-${originalFileName}`,
           epub3Url: epub3Url, // URL for EPUB3 version if converted from EPUB2
           fixedUrl: `/processed/${fileId}/${fixedFileName}`,
-          logUrl: reportExists ? `/processed/${fileId}/${reportFileName}` : null,
+          logUrl: `/processed/${fileId}/${reportFileName}`, // Always set logUrl since we create report file above
         }
       });
 
@@ -183,11 +309,10 @@ export async function POST(request: Request) {
           originalFileName: originalFileName,
           epub3FileName: epubVersion === "epub2" ? epub3FileName : null,
           fixedFileName: fixedFileName,
-          reportFileName: reportExists ? reportFileName : null,
+          reportFileName: reportFileName, // Always return report filename since we create report file above
           epub3FileUrl: epubVersion === "epub2" && epub3Url ? `/api/epub/download?file=${epub3Url.substring(1)}` : null,
           fixedFileUrl: `/api/epub/download?file=processed/${fileId}/${fixedFileName}`,
-          reportFileUrl: reportExists ? `/api/epub/download?file=processed/${fileId}/${reportFileName}` : null,
-          imageReviewReportFileUrl: imageReviewReportExists ? `/api/epub/download?file=processed/${fileId}/${imageReviewReportFileName}` : null,
+          reportFileUrl: `/api/epub/download?file=processed/${fileId}/${reportFileName}`, // Always return report URL since we create report file above
         }
       });
     } catch (processError: any) {

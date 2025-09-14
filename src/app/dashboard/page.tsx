@@ -25,7 +25,14 @@ export default function Dashboard() {
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+
+  // Redirect to sign in if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
+    }
+  }, [status, router]);
 
   // Fetch user's existing EPUB files from the database
   useEffect(() => {
@@ -197,8 +204,8 @@ export default function Dashboard() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  // Show loading state while fetching files
-  if (isLoading) {
+  // Show loading state while fetching files or checking session
+  if (isLoading || status === "loading") {
     return (
       <div className="py-6">
         <div className="flex justify-center items-center h-64">
@@ -206,6 +213,11 @@ export default function Dashboard() {
         </div>
       </div>
     );
+  }
+
+  // If not authenticated, don't render anything (redirect will happen)
+  if (!session) {
+    return null;
   }
 
   return (
