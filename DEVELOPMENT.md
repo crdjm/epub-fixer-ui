@@ -22,6 +22,8 @@ npm run build
 
 This command creates an optimized production build in the `.next` directory.
 
+**Important**: If you encounter a blank page or "Could not find a production build" error, you must run the build command again to regenerate the production build files.
+
 To start the production server:
 
 ```bash
