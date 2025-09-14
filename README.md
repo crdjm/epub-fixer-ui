@@ -14,6 +14,7 @@ This is a Next.js web application that provides a professional UI for processing
 - Download of processed files and detailed reports
 - Admin dashboard for managing users and EPUB files
 - Responsive design using Tailwind CSS
+- Command-line interface for listing fixable errors
 
 ## Getting Started
 
@@ -70,3 +71,20 @@ To learn more about the technologies used in this project:
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Command Line Interface
+
+This project includes a command-line interface that can list the EPUBCheck and DAISY/ACE errors that the epub-fix tool can automatically fix:
+
+```bash
+# List EPUBCheck errors that can be fixed
+node epub-fixer-cli.js --list-epubcheck-fixes
+
+# List DAISY/ACE errors that can be fixed
+node epub-fixer-cli.js --list-ace-fixes
+
+# Show help
+node epub-fixer-cli.js --help
+```
+
+The CLI provides detailed information about the types of issues that can be automatically resolved during the EPUB processing workflow.

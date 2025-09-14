@@ -1,20 +1,12 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import { PrismaClient } from "@prisma/client";
-
-// Create a single instance of PrismaClient
-const prisma = new PrismaClient();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
   providers: [
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      allowDangerousEmailAccountLinking: true, // Allow linking Google account to existing email accounts
+      clientId: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "",
     }),
     Credentials({
       name: "Email and Password",
@@ -23,68 +15,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
+        // For now, just return a dummy user
+        if (credentials?.email === "test@example.com" && credentials?.password === "password") {
+          return {
+            id: "1",
+            email: "test@example.com",
+            name: "Test User",
+          };
         }
-
-        // Fetch user from database
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
-
-        if (!user || !user.password) {
-          return null;
-        }
-
-        // Check if email is verified
-        if (!user.emailVerified) {
-          throw new Error("Please verify your email address before signing in");
-        }
-
-        // Validate password
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          return null;
-        }
-
-        // Return user object without password
-        const { password, ...userWithoutPassword } = user;
-        return userWithoutPassword;
+        return null;
       },
     }),
   ],
   callbacks: {
-    async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
-    },
-    async session({ session, token, user }) {
-      // If we have a user from the authorize function
-      if (user) {
+    async session({ session, token }) {
+      if (token) {
         session.user = {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          isAdmin: user.email === process.env.ADMIN_EMAIL,
-          emailVerified: !!user.emailVerified,
-        };
-      } 
-      // If we have a token from JWT
-      else if (token && session.user) {
-        session.user.id = token.sub || '';
-        session.user.email = token.email || '';
-        session.user.name = token.name || '';
-        session.user.isAdmin = token.email === process.env.ADMIN_EMAIL;
-        session.user.emailVerified = token.emailVerified || false;
+          id: token.sub || '',
+          email: token.email || '',
+          name: token.name || '',
+          isAdmin: token.email === process.env.ADMIN_EMAIL,
+        } as any;
       }
-      
       return session;
     },
     async jwt({ token, user }) {
@@ -93,22 +45,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.email = user.email;
         token.name = user.name;
         token.isAdmin = user.email === process.env.ADMIN_EMAIL;
-        token.emailVerified = !!user.emailVerified;
       }
-      
       return token;
     },
   },
   pages: {
     signIn: "/auth/signin",
-    error: "/auth/signin", // Error page
   },
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  jwt: {
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 });

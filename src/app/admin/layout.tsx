@@ -3,15 +3,16 @@ import { redirect } from "next/navigation";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import SessionWrapper from "@/components/SessionWrapper";
 
-export default async function DashboardLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const session = await auth();
 
-  if (!session) {
-    redirect("/auth/signin");
+  // Check if user is admin
+  if (!session || !session.user?.isAdmin) {
+    redirect("/dashboard");
   }
 
   return (

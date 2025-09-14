@@ -17,6 +17,7 @@ interface EpubFile {
   fixedUrl?: string;
   epub3Url?: string; // For EPUB3 version of EPUB2 files
   originalUrl?: string;
+  imageReviewReportUrl?: string; // Added for image review report
 }
 
 export default function Dashboard() {
@@ -46,6 +47,7 @@ export default function Dashboard() {
             fixedUrl: epub.fixedUrl ? `/api/epub/download?file=${epub.fixedUrl.substring(1)}` : undefined,
             epub3Url: epub.epub3Url ? `/api/epub/download?file=${epub.epub3Url.substring(1)}` : undefined,
             originalUrl: epub.originalUrl ? `/api/epub/download?file=${epub.originalUrl.substring(1)}` : undefined,
+            imageReviewReportUrl: epub.imageReviewReportUrl ? `/api/epub/download?file=${epub.imageReviewReportUrl.substring(1)}` : undefined, // Added image review report URL
           }));
           setFiles(epubFiles);
         } else {
@@ -125,6 +127,7 @@ export default function Dashboard() {
                   epub3Url: result.data.epub3FileUrl,
                   fixedUrl: result.data.fixedFileUrl,
                   logUrl: result.data.reportFileUrl,
+                  imageReviewReportUrl: result.data.imageReviewReportFileUrl, // Added image review report URL
                 } 
               : f
           )

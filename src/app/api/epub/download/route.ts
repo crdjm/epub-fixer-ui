@@ -58,8 +58,28 @@ export async function GET(request: Request) {
       contentType = "text/html";
     }
 
+    let responseBody = fileBuffer;
+
+    // For HTML files, we need to rewrite relative links to use the download API
+    if (ext === ".html") {
+      const fileContent = fileBuffer.toString('utf-8');
+      const directoryPath = path.dirname(filePath);
+      
+      // Rewrite relative links to use the download API
+      // This regex looks for href attributes with relative paths (not starting with http or /)
+      const updatedContent = fileContent.replace(
+        /href=["']([^http\/#][^"']*\.(html|htm))["']/g,
+        (match, relativePath) => {
+          const fullPathToLinkedFile = path.posix.join(directoryPath, relativePath);
+          return `href="/api/epub/download?file=${fullPathToLinkedFile}"`;
+        }
+      );
+      
+      responseBody = Buffer.from(updatedContent, 'utf-8');
+    }
+
     // Create response with appropriate headers
-    const response = new NextResponse(fileBuffer);
+    const response = new NextResponse(responseBody as any);
     response.headers.set("Content-Type", contentType);
     
     // For HTML files, display in browser; for EPUB files, force download

@@ -14,6 +14,9 @@ export default async function AdminDashboard() {
 
   // Fetch data for admin dashboard
   const users = await prisma.user.findMany({
+    include: {
+      epubs: true,
+    },
     orderBy: {
       createdAt: "desc",
     },
@@ -42,11 +45,11 @@ export default async function AdminDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Users Section */}
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h2 className="text-lg leading-6 font-medium text-gray-900">Users</h2>
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Users</h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               All registered users
             </p>
@@ -64,25 +67,19 @@ export default async function AdminDashboard() {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     EPUBs
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Joined
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
                   <tr key={user.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {user.name || "N/A"}
+                      {user.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {user.email}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.epubs?.length || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {user.epubs.length}
                     </td>
                   </tr>
                 ))}
@@ -94,9 +91,9 @@ export default async function AdminDashboard() {
         {/* EPUBs Section */}
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h2 className="text-lg leading-6 font-medium text-gray-900">EPUB Files</h2>
+            <h3 className="text-lg leading-6 font-medium text-gray-900">EPUB Files</h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              All uploaded EPUB files
+              All processed EPUB files
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -112,9 +109,6 @@ export default async function AdminDashboard() {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Uploaded
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -128,17 +122,12 @@ export default async function AdminDashboard() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        epub.status === "completed" 
-                          ? "bg-green-100 text-green-800" 
-                          : epub.status === "processing" 
-                            ? "bg-yellow-100 text-yellow-800" 
-                            : "bg-red-100 text-red-800"
+                        epub.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        epub.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
                       }`}>
                         {epub.status}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(epub.createdAt).toLocaleDateString()}
                     </td>
                   </tr>
                 ))}

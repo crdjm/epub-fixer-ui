@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import type { SignInResponse } from "next-auth/react";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -12,23 +13,11 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const searchParams = useSearchParams();
-  const verifyMessage = searchParams.get("verified");
+  const [isClient, setIsClient] = useState(false);
 
-  // Redirect to dashboard if already logged in
   useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/dashboard");
-    }
-  }, [status, router]);
-
-  // Show verification message if present
-  useEffect(() => {
-    if (verifyMessage === "success") {
-      toast.success("Email verified successfully! You can now sign in.");
-    }
-  }, [verifyMessage]);
+    setIsClient(true);
+  }, []);
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +25,7 @@ export default function SignIn() {
     setError(null);
 
     try {
-      const result = await signIn("credentials", {
+      const result: any = await signIn("credentials", {
         email,
         password,
         redirect: false, // Handle redirect manually to avoid hydration issues
@@ -67,7 +56,7 @@ export default function SignIn() {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      const result = await signIn("google", {
+      const result: any = await signIn("google", {
         callbackUrl: "/dashboard",
         redirect: true,
       });
@@ -82,8 +71,8 @@ export default function SignIn() {
     }
   };
 
-  // Show loading state while checking session
-  if (status === "loading") {
+  // Don't render anything until the component is mounted to avoid hydration mismatch
+  if (!isClient) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
@@ -122,14 +111,6 @@ export default function SignIn() {
         {error && (
           <div className="rounded-md bg-red-50 p-4">
             <div className="text-sm text-red-700">{error}</div>
-          </div>
-        )}
-
-        {verifyMessage === "success" && (
-          <div className="rounded-md bg-green-50 p-4">
-            <div className="text-sm text-green-700">
-              Email verified successfully! You can now sign in.
-            </div>
           </div>
         )}
 

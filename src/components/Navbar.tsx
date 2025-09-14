@@ -1,7 +1,23 @@
+"use client";
+
 import Link from "next/link";
 import NavbarClient from "@/components/NavbarClient";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
-export default async function Navbar() {
+export default function Navbar() {
+  const pathname = usePathname();
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  // Don't show the main navbar on dashboard pages since they have their own navbar
+  if (pathname?.startsWith("/dashboard")) {
+    return null;
+  }
+
   return (
     <nav className="bg-white shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -26,9 +42,15 @@ export default async function Navbar() {
               >
                 Features
               </Link>
+              <Link
+                href="/education"
+                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                Education
+              </Link>
             </div>
           </div>
-          <NavbarClient />
+          {isClient && <NavbarClient />}
         </div>
       </div>
     </nav>
