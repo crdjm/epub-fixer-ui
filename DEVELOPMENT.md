@@ -161,6 +161,30 @@ This command will:
 2. Apply all migrations
 3. Optionally run seed scripts if configured
 
+### Database Constraint Issues
+
+If you see foreign key constraint errors in the logs like:
+```
+Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.epub.create()` invocation:
+Foreign key constraint violated: `foreign key`
+```
+
+This is likely caused by corrupted data in the database. To resolve this issue:
+
+1. **Reset the database**:
+   ```bash
+   npx prisma migrate reset --force
+   ```
+
+2. **Restart the production server**:
+   ```bash
+   npm run build
+   npm run start
+   ```
+
+This will clear out any corrupted data and recreate the database schema from scratch.
+
 ## Troubleshooting UI Issues
 
 If you encounter UI issues in the production build, here are some steps to diagnose and fix them:
@@ -216,11 +240,11 @@ If you encounter UI issues in the production build, here are some steps to diagn
 If you see Prisma errors in the logs:
 1. **Check database file permissions**:
    ```bash
-   ls -la prisma/data.db
+   ls -la prisma/dev.db
    ```
 
 2. **Reset the database** (if needed):
    ```bash
-   rm prisma/data.db
+   rm prisma/dev.db
    npx prisma migrate dev --name init
    ```
