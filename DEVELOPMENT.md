@@ -22,21 +22,21 @@ npm run build
 
 This command creates an optimized production build in the `.next` directory.
 
-To start the production server, you have two options:
+To start the production server:
 
-Option 1 - Using Next.js server (Recommended for Google OAuth):
 ```bash
 npm run start
 ```
 
-Option 2 - Using the custom Express server (Limited functionality):
-```bash
-node server.js
-```
+This will start the server on port 3456. The production server uses the standard Next.js server which properly handles all API routes including NextAuth authentication endpoints.
 
-**Important Note About Google Authentication**: The custom Express server ([server.js](file:///Users/crdjm/Dev/epub-fixer-ui/server.js)) does not properly handle NextAuth API routes which are required for Google OAuth to work. If you need Google authentication in production, you must use `npm run start` instead of the custom Express server.
-
-Both will start the server on port 3456. The custom Express server ([server.js](file:///Users/crdjm/Dev/epub-fixer-ui/server.js)) is designed to serve the static files generated during the build process but lacks proper API route handling.
+**Important Notes**:
+1. Make sure the [AUTH_URL](file:///Users/crdjm/Dev/epub-fixer-ui/.env#L12-L12) in your `.env` file is set to `http://localhost:3456` for production
+2. If you encounter a port conflict (EADDRINUSE error), kill the existing process with:
+   ```bash
+   lsof -ti:3456 | xargs kill -9
+   ```
+3. The custom Express server ([server.js](file:///Users/crdjm/Dev/epub-fixer-ui/server.js)) should NOT be used for production deployments that require Google OAuth functionality as it blocks API routes
 
 ## 3. Accessing Development Database Content
 
