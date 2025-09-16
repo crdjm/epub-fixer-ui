@@ -1,30 +1,28 @@
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
-import { auth } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/simple-auth-middleware";
 import { prisma } from "@/lib/db";
+import { NextRequest } from "next/server";
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 const PROCESSED_DIR = path.join(process.cwd(), "processed");
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
     // Authenticate user
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const epubId = searchParams.get("id");
-    
+
     if (!epubId) {
       return NextResponse.json(
         { error: "EPUB ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -32,14 +30,14 @@ export async function DELETE(request: Request) {
     const epub = await prisma.epub.findUnique({
       where: {
         id: epubId,
-        userId: session.user.id, // Ensure user owns this EPUB
+        userId: user.id, // Ensure user owns this EPUB
       },
     });
 
     if (!epub) {
       return NextResponse.json(
         { error: "EPUB not found or unauthorized" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -79,7 +77,9 @@ export async function DELETE(request: Request) {
 
       // Delete processed directory if it exists and is empty
       if (epub.fixedUrl) {
-        const processedDir = path.dirname(path.join(process.cwd(), epub.fixedUrl));
+        const processedDir = path.dirname(
+          path.join(process.cwd(), epub.fixedUrl),
+        );
         try {
           const files = await fs.readdir(processedDir);
           if (files.length === 0) {
@@ -97,7 +97,7 @@ export async function DELETE(request: Request) {
     await prisma.epub.delete({
       where: {
         id: epubId,
-        userId: session.user.id,
+        userId: user.id,
       },
     });
 
@@ -109,7 +109,7 @@ export async function DELETE(request: Request) {
     console.error("EPUB deletion error:", error);
     return NextResponse.json(
       { error: "Failed to delete EPUB", details: (error as Error).message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

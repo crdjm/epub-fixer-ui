@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import Link from "next/link";
 
 export default function SignUp() {
@@ -50,8 +49,11 @@ export default function SignUp() {
         throw new Error(data.error || "Something went wrong");
       }
 
-      // Show success message
+      // Show success message and redirect to signin
       setSuccess(true);
+      setTimeout(() => {
+        router.push("/auth/signin");
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
@@ -65,28 +67,19 @@ export default function SignUp() {
         <div className="max-w-md w-full space-y-8">
           <div>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Check your email
+              Account Created Successfully
             </h2>
             <p className="mt-2 text-center text-sm text-gray-600">
-              We've sent a verification link to {email}
+              Welcome {name}!
             </p>
           </div>
 
           <div className="rounded-md bg-green-50 p-4">
             <div className="text-sm text-green-700">
               <p>Your account has been created successfully!</p>
-              <p className="mt-2">Please check your email and click the verification link to complete your registration.</p>
-              <p className="mt-2">Didn't receive the email? Check your spam folder.</p>
+              <p className="mt-2">You will be redirected to the sign in page shortly...</p>
+              <p className="mt-2">Or <Link href="/auth/signin" className="font-medium text-indigo-600 hover:text-indigo-500">click here</Link> to sign in now.</p>
             </div>
-          </div>
-
-          <div className="text-center">
-            <Link
-              href="/auth/signin"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              Go to sign in page
-            </Link>
           </div>
         </div>
       </div>
@@ -197,10 +190,20 @@ export default function SignUp() {
           </div>
           
           <div className="text-xs text-gray-500">
-            <p>By creating an account, you agree to receive a verification email.</p>
-            <p className="mt-1">Please verify your email address to complete registration.</p>
+            <p>By creating an account, you agree to our terms of service.</p>
+            <p className="mt-1">Email verification is currently disabled for simplicity.</p>
+            {/* <p className="mt-2 font-medium">Note: If you have a Google account, you can use Google Sign-In instead of creating a password.</p> */}
           </div>
         </form>
+        
+        <div className="mt-4 text-center">
+          <Link
+            href="/auth/signin"
+            className="font-medium text-indigo-600 hover:text-indigo-500 text-sm"
+          >
+            Already have an account? Sign in
+          </Link>
+        </div>
       </div>
     </div>
   );

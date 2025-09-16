@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
-  const token = (await cookies()).get("auth-token")?.value;
+  const cookieStore = cookies();
+  const token = cookieStore.get("auth-token")?.value;
 
   if (!token) {
     return NextResponse.json({ authenticated: false });

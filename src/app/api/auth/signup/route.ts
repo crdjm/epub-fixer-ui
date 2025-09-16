@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
-import { generateVerificationToken, sendVerificationEmail } from "@/lib/email";
 
 const prisma = new PrismaClient();
 
@@ -28,27 +27,24 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
     console.log("Password hashed");
 
-    // Create user
+    // Create user with email already verified for simplicity
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        emailVerified: null, // Email not verified yet
+        emailVerified: new Date(), // Set as verified immediately
       },
     });
     
     console.log("User created:", user.id);
 
-    // Generate and send verification email
-    const token = await generateVerificationToken(email);
-    await sendVerificationEmail(email, token);
-
     // Return success response (without password)
-    const { password: _, ...userWithoutPassword } = user;
     return NextResponse.json({
-      ...userWithoutPassword,
-      message: "Account created successfully. Please check your email for verification."
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      message: "Account created successfully. You can now sign in."
     });
   } catch (error) {
     console.error("Signup error:", error);

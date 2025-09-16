@@ -1,14 +1,16 @@
-import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PrismaClient } from "@prisma/client";
+import { getUserFromToken } from "@/lib/simple-auth-middleware";
+import { cookies } from "next/headers";
 
 const prisma = new PrismaClient();
 
 export default async function AdminDashboard() {
-  const session = await auth();
+  const token = (await cookies()).get("auth-token")?.value;
+  const user = token ? await getUserFromToken(token) : null;
 
   // Check if user is admin
-  if (!session || !session.user?.isAdmin) {
+  if (!user?.isAdmin) {
     redirect("/dashboard");
   }
 
@@ -49,7 +51,9 @@ export default async function AdminDashboard() {
         {/* Users Section */}
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Users</h3>
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              Users
+            </h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               All registered users
             </p>
@@ -58,13 +62,22 @@ export default async function AdminDashboard() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Name
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Email
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     EPUBs
                   </th>
                 </tr>
@@ -91,7 +104,9 @@ export default async function AdminDashboard() {
         {/* EPUBs Section */}
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">EPUB Files</h3>
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              EPUB Files
+            </h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               All processed EPUB files
             </p>
@@ -100,13 +115,22 @@ export default async function AdminDashboard() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Title
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     User
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Status
                   </th>
                 </tr>
@@ -121,11 +145,15 @@ export default async function AdminDashboard() {
                       {epub.user?.name || epub.user?.email}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        epub.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        epub.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          epub.status === "completed"
+                            ? "bg-green-100 text-green-800"
+                            : epub.status === "processing"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                        }`}
+                      >
                         {epub.status}
                       </span>
                     </td>

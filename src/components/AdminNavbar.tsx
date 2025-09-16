@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function DashboardNavbar({ user }: { user: any }) {
+export default function AdminNavbar({ user }: { user: any }) {
   const router = useRouter();
 
   const handleSignOut = () => {
@@ -19,27 +19,25 @@ export default function DashboardNavbar({ user }: { user: any }) {
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link
-                href="/dashboard"
+                href="/admin"
                 className="text-xl font-bold text-indigo-600"
               >
-                EPUB Fixer Dashboard
+                Admin Dashboard
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link
-                href="/dashboard"
+                href="/admin"
                 className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
               >
-                My Files
+                Users & EPUBs
               </Link>
-              {user?.isAdmin && (
-                <Link
-                  href="/admin"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Admin
-                </Link>
-              )}
+              <Link
+                href="/dashboard"
+                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                My Dashboard
+              </Link>
             </div>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">

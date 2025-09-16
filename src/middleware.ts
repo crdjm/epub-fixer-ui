@@ -1,46 +1,61 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { simpleAuthMiddleware } from "@/lib/simple-auth-middleware";
 
 // Simple middleware to protect routes without using NextAuth
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  // Clone the request headers and set a new header `x-url`
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-url", request.url);
+
   // Get the path
   const { pathname } = request.nextUrl;
-  
+
   // Define public routes
-  const isPublicRoute = 
-    pathname === "/" || 
-    pathname === "/auth/signin" || 
+  const isPublicRoute =
+    pathname === "/" ||
+    pathname === "/auth/signin" ||
     pathname === "/auth/signup" ||
+    pathname === "/simple-login" || // Add our simple login page
     pathname.startsWith("/api/test") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico");
 
   // Define protected routes
-  const isProtectedRoute = 
-    pathname.startsWith("/dashboard/") || 
-    pathname.startsWith("/admin/");
+  const isProtectedRoute =
+    pathname.startsWith("/dashboard/") || pathname.startsWith("/admin/");
 
   // Allow access to public routes
   if (isPublicRoute) {
-    return NextResponse.next();
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
-  // For protected routes, we would normally check for a session
-  // But in middleware, we'll just allow the request to proceed
-  // and let the page component handle authentication
+  // For protected routes, check our simple authentication
   if (isProtectedRoute) {
-    // In a real implementation, we would check for a valid session token
-    // For now, we'll allow the request to proceed to the page
-    return NextResponse.next();
+    console.log(
+      "Middleware: Protected route, calling simpleAuthMiddleware for",
+      pathname,
+    );
+    const nextResponse = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+    return simpleAuthMiddleware(request, nextResponse);
   }
 
   // Allow all other requests
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/admin/:path*",
-  ],
+  matcher: ["/dashboard/:path*", "/admin/:path*"],
 };

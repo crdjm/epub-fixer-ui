@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const port = 3456;
+const port = 3456; // Changed to 3456 for production
 
 // Serve static files from .next/static
 app.use('/_next/static', express.static(path.join(__dirname, '.next', 'static')));

@@ -1,18 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import NavbarClient from "@/components/NavbarClient";
+
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [isClient, setIsClient] = useState(false);
-  
+
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
+
   // Don't show the main navbar on dashboard pages since they have their own navbar
   if (pathname?.startsWith("/dashboard")) {
     return null;
@@ -50,7 +50,20 @@ export default function Navbar() {
               </Link>
             </div>
           </div>
-          {isClient && <NavbarClient />}
+          <div className="hidden sm:ml-6 sm:flex sm:items-center">
+            <Link
+              href="/simple-login"
+              className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+            >
+              Sign In
+            </Link>
+            <button
+              disabled
+              className="ml-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-400 cursor-not-allowed"
+            >
+              Sign Up
+            </button>
+          </div>
         </div>
       </div>
     </nav>

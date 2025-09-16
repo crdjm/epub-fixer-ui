@@ -185,6 +185,52 @@ This is likely caused by corrupted data in the database. To resolve this issue:
 
 This will clear out any corrupted data and recreate the database schema from scratch.
 
+## 8. Authentication Troubleshooting
+
+### Credentials Login Not Redirecting
+
+If the credentials login is not redirecting to the dashboard:
+
+1. Ensure the credentials authorize function in [src/lib/auth.ts](file:///Users/crdjm/Dev/epub-fixer-ui/src/lib/auth.ts) properly validates users against the database
+2. Check that the signin page uses `redirect: true` with a proper `callbackUrl`
+3. Verify that the user exists in the database with the correct password
+
+### Google Authentication with Reverse Proxy
+
+When using a reverse proxy (like Caddy) for Google authentication, you may encounter server configuration errors. To fix this:
+
+1. **Update Google OAuth Redirect URIs**:
+   - Go to Google Cloud Console > APIs & Services > Credentials
+   - Edit your OAuth 2.0 Client ID
+   - Add your external IP to "Authorized redirect URIs":
+     - `http://YOUR_EXTERNAL_IP:PORT/api/auth/callback/google`
+     - For example: `http://192.168.68.51:3457/api/auth/callback/google`
+
+2. **Configure AUTH_URL in .env**:
+   - Set [AUTH_URL](file:///Users/crdjm/Dev/epub-fixer-ui/.env#L12-L12) to match your external URL when using reverse proxy
+   - For example: `AUTH_URL=http://192.168.68.51:3457`
+
+3. **Restart the server** after making these changes
+
+### General Authentication Issues
+
+1. **Verify environment variables**:
+   Ensure all required Auth.js environment variables are set:
+   ```env
+   AUTH_SECRET=your-secret-key
+   AUTH_URL=http://localhost:3457
+   AUTH_GOOGLE_ID=your-google-client-id
+   AUTH_GOOGLE_SECRET=your-google-client-secret
+   ```
+
+2. **Check session configuration**:
+   - Ensure SessionProvider is properly configured in [src/app/layout.tsx](file:///Users/crdjm/Dev/epub-fixer-ui/src/app/layout.tsx)
+   - Avoid duplicate SessionProvider components in nested layouts
+
+3. **Debug authentication flow**:
+   - Enable debug mode in development by setting `debug: true` in the NextAuth configuration
+   - Check browser console and server logs for authentication errors
+
 ## Troubleshooting UI Issues
 
 If you encounter UI issues in the production build, here are some steps to diagnose and fix them:
